@@ -1,7 +1,14 @@
 from fastapi import FastAPI, Request
 import httpx
 from starlette.responses import Response
-from starlette.status import HTTP_502_BAD_GATEWAY
+from starlette.status import (
+    HTTP_502_BAD_GATEWAY,
+    HTTP_301_MOVED_PERMANENTLY,
+    HTTP_302_FOUND,
+    HTTP_303_SEE_OTHER,
+    HTTP_307_TEMPORARY_REDIRECT,
+    HTTP_308_PERMANENT_REDIRECT,
+)
 
 app = FastAPI()
 
@@ -23,12 +30,10 @@ async def proxy(path: str, request: Request):
             target_service_url = f"{REDIRECTOR_URL}/{path}"
             print("➡️ Forwarding to REDIRECTOR service")
 
+        # Sending task to service by proxy request
         async with httpx.AsyncClient() as client:
-            body = await request.body()
-            headers = dict(request.headers)
-
-            print(f"📤 Request body: {body.decode('utf-8') if body else '[Empty]'}")
-            print(f"📤 Request headers: {headers}")
+            body = await request.body()  # Passing the body of original request
+            headers = dict(request.headers)  # Passing the header of original request
 
             proxy_req = client.build_request(
                 method,
@@ -37,12 +42,17 @@ async def proxy(path: str, request: Request):
                 content=body
             )
 
+            # Sends the request to the downstream service.
             proxy_res = await client.send(proxy_req, stream=True)
 
-            print(f"✅ Response status: {proxy_res.status_code}")
+            print(f"✅ Target Service ({target_service_url}) response status: {proxy_res.status_code}")
 
-            # טיפול מיוחד להפניות HTTP (3xx)
-            if proxy_res.status_code in (301, 302, 303, 307, 308):
+            if proxy_res.status_code in (HTTP_301_MOVED_PERMANENTLY,
+                                         HTTP_302_FOUND,
+                                         HTTP_303_SEE_OTHER,    
+                                         HTTP_307_TEMPORARY_REDIRECT,
+                                         HTTP_308_PERMANENT_REDIRECT
+                                         ):
                 redirect_headers = {}
                 if "location" in proxy_res.headers:
                     redirect_headers["location"] = proxy_res.headers["location"]
@@ -51,10 +61,8 @@ async def proxy(path: str, request: Request):
                     headers=redirect_headers
                 )
 
-            # טעינת התוכן המלא של התגובה
             content = await proxy_res.aread()
 
-            # החזרת התגובה ללקוח כולל תוכן, סטטוס וכותרות
             return Response(
                 content=content,
                 status_code=proxy_res.status_code,
