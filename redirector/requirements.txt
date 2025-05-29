@@ -1,5 +1,4 @@
 fastapi             # Handling APIs
 uvicorn[standard]   # Handling managing containers
-asyncpg             # Handling async PostgreSQL driver
 databases           # Handling async DB connection management
 redis               # Handling redis client library
