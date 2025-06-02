@@ -3,3 +3,4 @@ uvicorn[standard]   # Handling managing containers
 databases           # Handling async DB connection management
 redis               # Handling redis client library
 shortuuid           # Handling generate uniqe short url
+asyncpg             # Handling asyncpg library
